@@ -188,29 +188,32 @@ const UserDashboard = () => {
               alt="Profile"
               className="w-12 h-12 rounded-full"
             />
+            
             <div className="flex flex-col">
               <p className="text-lg font-semibold text-gray-600">{user.displayName}</p>
               <p className="text-gray-600">{user.email}</p>
             </div>
+            <button
+                className="ml-auto text-red-600 hover:text-red-800"
+              >CPC_PM2.5
+              </button>
             <button
               onClick={handleLogout}
               className="ml-auto text-red-600 hover:text-red-800"
             >
               <FaSignOutAlt size={24} />
             </button>
-            <button
-                className="ml-auto text-red-600 hover:text-red-800"
-              >CPC_PM2.5
-              </button>
+            
           </div>
         )}
-
+        <UserDetailIOT/>
+        
         {/* Button to open the registration form */}
         <button
           onClick={() => setIsModalOpen(true)}
           className="fixed bottom-6 right-6 px-6 py-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition duration-300"
         >
-          Register
+          รับการแจ้งเตือน
         </button>
 
         {/* Modal for registration form */}
@@ -307,7 +310,8 @@ const UserDashboard = () => {
             </div>
           </div>
         )}
-        <UserDetailIOT/>
+        
+        
       </div>
     </div>
   );

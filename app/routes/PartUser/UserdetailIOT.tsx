@@ -1,20 +1,16 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { FaInfoCircle } from 'react-icons/fa';
+import IOTGPY2024 from './IOTGPY2024';
 
 export default function UserDetailIOT() {
   const [iotData, setIotData] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true); // สำหรับแสดงสถานะการโหลด
-  const [error, setError] = useState<string | null>(null); // สำหรับจัดการข้อผิดพลาด
-  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // ดึงข้อมูล IoT จาก API เมื่อโหลดหน้า และรีเฟรชทุก 1 วินาที
   useEffect(() => {
     const fetchData = async () => {
       try {
         const response = await axios.get('http://localhost:3005/api/getIoTData');
-        // กรองข้อมูลที่ pmId ไม่เป็น null หรือ undefined และที่สถานะไม่เป็น 'inactive' หรือ 'deactivate'
         const filteredData = response.data.filter(
           (data: any) => data.pmId !== null && data.pmId !== undefined && data.status !== 'inactive'
         );
@@ -27,11 +23,9 @@ export default function UserDetailIOT() {
       }
     };
 
-    // เรียกใช้ฟังก์ชัน fetchData ทันทีเมื่อโหลดหน้า และทุกๆ 1 วินาที
     fetchData();
-    const intervalId = setInterval(fetchData, 1000); // รีเฟรชข้อมูลทุก 1 วินาที
+    const intervalId = setInterval(fetchData, 1000);
 
-    // ล้าง interval เมื่อคอมโพเนนต์ถูก unmount
     return () => clearInterval(intervalId);
   }, []);
 
@@ -51,51 +45,78 @@ export default function UserDetailIOT() {
     );
   }
 
+  // ฟังก์ชันสำหรับเลือกสีพื้นหลัง, สีฟอนต์ และสีไอคอนตามค่า PM2.5
+  const getColors = (pmValue: number) => {
+    if (pmValue < 1) {
+      return {
+        backgroundColor: 'bg-green-200', // ดี
+        fontColor: 'text-green-800',
+        iconColor: 'text-green-500'
+      };
+    } else if (pmValue >= 5 && pmValue < 15) {
+      return {
+        backgroundColor: 'bg-yellow-200', // ปานกลาง
+        fontColor: 'text-yellow-800',
+        iconColor: 'text-yellow-500'
+      };
+    } else {
+      return {
+        backgroundColor: 'bg-red-200', // ไม่ดี
+        fontColor: 'text-red-800',
+        iconColor: 'text-red-500'
+      };
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-100 p-6">
-      <h1 className="text-3xl font-semibold text-indigo-600 text-center mb-8">Dashboard</h1>
-      
-      {/* Render IoT Data in Cards */}
+      <h1 className="text-3xl font-semibold text-indigo-600 text-center mb-8">
+        คุณภาพอากาศ RMUTTO
+      </h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {iotData.map((data, index) => (
-          <div key={index} className="bg-white rounded-lg shadow-lg p-6 space-y-4">
-            <h4 className="text-xl font-medium text-indigo-600">ชื่ออุปกรณ์: {data.pmId}</h4>
-            <h3 className="text-xl font-medium text-indigo-600">สถานที่: {data.address}</h3>
-            <div className="text-gray-500">
-              <h4 className="font-semibold text-lg text-indigo-600">IoT Data</h4>
-              <ul className="space-y-2">
-                {data.PM1 && (
-                  <li className="flex justify-between">
-                    <span className="text-sm">PM1</span>
-                    <span className="font-medium text-indigo-700">{data.PM1}</span>
-                  </li>
-                )}
-                {data.PM10 && (
-                  <li className="flex justify-between">
-                    <span className="text-sm">PM10</span>
-                    <span className="font-medium text-indigo-700">{data.PM10}</span>
-                  </li>
-                )}
-                {data.PM2_5 && (
-                  <li className="flex justify-between">
-                    <span className="text-sm">PM2_5</span>
-                    <span className="font-medium text-indigo-700">{data.PM2_5}</span>
-                  </li>
-                )}
-              </ul>
-            </div>
+        {iotData.map((data, index) => {
+          const pm2_5 = data.PM2_5 || 0; // ใช้ค่า PM2.5 หรือ 0 ถ้าไม่มีค่า
+          const { backgroundColor, fontColor, iconColor } = getColors(pm2_5);
 
-            {/* Detail Button with Animated Icon */}
-            <button
-              onClick={() => navigate(`/cpc/user/dashboardiot/${data.pmId}`)} // Navigate to the IoT detail page with pmId
-              className="flex items-center justify-center bg-indigo-600 text-white p-3 rounded-full hover:bg-indigo-700 transform transition-transform duration-300 hover:scale-105 shadow-lg hover:shadow-xl mt-4"
+          return (
+            <div
+              key={index}
+              className={`rounded-lg shadow-lg p-6 space-y-4 text-gray-800 ${backgroundColor}`}
             >
-              <FaInfoCircle size={20} className="mr-2 animate-pulse" />
-              <span className="text-sm font-medium">View Detail</span>
-            </button>
-          </div>
-        ))}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className={`text-xl font-bold ${fontColor}`}>สถานที่: {data.address}</h2>
+                  <p className="text-sm text-gray-500">
+                    สถานะ: <span className={`font-medium ${iconColor}`}>{data.status || 'ปานกลาง'}</span>
+                  </p>
+                </div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md ${iconColor}`}>
+                  <span role="img" aria-label="profile" className="text-2xl">
+                    👤
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 p-4 rounded-lg">
+                <p className="text-gray-700 text-sm font-medium">สารมลพิษหลัก:</p>
+                {/* แสดงข้อมูล PM2.5 ถ้ามีค่า */}
+                {data.PM2_5 && (
+                  <p className={`font-bold text-lg ${iconColor}`}>PM2.5: {data.PM2_5} µg/m³</p>
+                )}
+                {/* แสดงข้อมูล PM10 ถ้ามีค่า */}
+                {data.PM10 && (
+                  <p className={`text-sm ${iconColor}`}>PM10: {data.PM10} µg/m³</p>
+                )}
+                {/* แสดงข้อมูล PM1 ถ้ามีค่า */}
+                {data.PM1 && (
+                  <p className={`text-sm ${iconColor}`}>PM1: {data.PM1} µg/m³</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
+      <IOTGPY2024/>
     </div>
   );
 }
