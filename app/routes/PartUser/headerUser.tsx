@@ -47,7 +47,7 @@ const HeaderUser = () => {
             </li>
             <li>
               <a
-                href="/services"
+                href="/cpc/user/pm_ranking"
                 className="hover:underline transition-colors duration-200"
               >
                 ภาพรวม

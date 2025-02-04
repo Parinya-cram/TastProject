@@ -430,3 +430,30 @@ app.delete('/api/deleteDevice/:pmId', async (req, res) => {
     res.status(500).json({ message: 'Failed to delete device', error: err.message });
   }
 });
+
+app.get('/api/getHistory/:pmId?', async (req, res) => {
+  try {
+    const { pmId } = req.params; // ใช้ req.params แทน query
+    let query = db.collection('history');
+
+    if (pmId) {
+      query = query.where('pmId', '==', pmId); // กรองตาม pmId
+    }
+
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ message: 'No matching history data found.' });
+    }
+
+    const data = [];
+    snapshot.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error('Error fetching history data:', error);
+    res.status(500).json({ message: 'Failed to fetch history data.' });
+  }
+});

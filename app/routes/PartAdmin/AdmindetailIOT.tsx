@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import LedStatus from './LedStatus';
 import { useNavigate } from '@remix-run/react';
+import IOTGPY2024RS from './IOTGPY2024RS';
 
 export default function DetailIOT() {
   const [iotData, setIotData] = useState<any[]>([]);
@@ -157,7 +158,7 @@ export default function DetailIOT() {
           .filter((data) => data.pmId !== "null" && data.pmId !== "")
           .map((data, index) => (
             <div key={index} className="bg-white rounded-lg shadow-lg p-6 space-y-4">
-              <LedStatus lastUpdate={data.lastUpdate} PM1={data.PM1} PM10={data.PM10} PM2_5={data.PM2_5} />
+              <LedStatus lastUpdate={data.lastUpdate} PM1={data.PM1} PM10={data.PM10} PM2_5={data.PM2_5} /><IOTGPY2024RS pmId="IOTGPY2024" />
               <h1 className="text-xl font-medium text-indigo-600">Device Name: {data.pmId}</h1>
               <h2 className="text-xl font-medium text-indigo-600">อาคาร: {data.address}</h2>
               <h2 className="text-xl font-medium text-indigo-600">ห้อง: {data.location}</h2>

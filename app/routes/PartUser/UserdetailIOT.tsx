@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import IOTGPY2024 from './IOTGPY2024';
+import { FaSmog } from 'react-icons/fa';
+import PMValuesT9 from './PMValuesT9';
 
 export default function UserDetailIOT() {
   const [iotData, setIotData] = useState<any[]>([]);
@@ -47,21 +49,27 @@ export default function UserDetailIOT() {
 
   // ฟังก์ชันสำหรับเลือกสีพื้นหลัง, สีฟอนต์ และสีไอคอนตามค่า PM2.5
   const getColors = (pmValue: number) => {
-    if (pmValue < 1) {
+    if (pmValue <= 25 ) {
       return {
-        backgroundColor: 'bg-green-200', // ดี
+        backgroundColor: 'bg-green-200', // คุณภาพอากาศดี
         fontColor: 'text-green-800',
         iconColor: 'text-green-500'
       };
-    } else if (pmValue >= 5 && pmValue < 15) {
+    } else if (pmValue > 25 && pmValue < 37.6) {
       return {
-        backgroundColor: 'bg-yellow-200', // ปานกลาง
+        backgroundColor: 'bg-yellow-200', // คุณภาพอากาศปานกลาง
         fontColor: 'text-yellow-800',
         iconColor: 'text-yellow-500'
       };
-    } else {
+    } else if (pmValue > 37.6 && pmValue < 75.0) {
       return {
-        backgroundColor: 'bg-red-200', // ไม่ดี
+        backgroundColor: 'bg-orange-200', // คุณภาพอากาศมีผลกระทบต่อสุขภาพ
+        fontColor: 'text-orange-800',
+        iconColor: 'text-orange-500'
+      };
+    }else  {
+      return {
+        backgroundColor: 'bg-red-200', // คุณภาพอากาศมีผลกระทบต่อสุขภาพมาก
         fontColor: 'text-red-800',
         iconColor: 'text-red-500'
       };
@@ -73,7 +81,7 @@ export default function UserDetailIOT() {
       <h1 className="text-3xl font-semibold text-indigo-600 text-center mb-8">
         คุณภาพอากาศ RMUTTO
       </h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-6">
         {iotData.map((data, index) => {
           const pm2_5 = data.PM2_5 || 0; // ใช้ค่า PM2.5 หรือ 0 ถ้าไม่มีค่า
           const { backgroundColor, fontColor, iconColor } = getColors(pm2_5);
@@ -91,9 +99,7 @@ export default function UserDetailIOT() {
                   </p>
                 </div>
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md ${iconColor}`}>
-                  <span role="img" aria-label="profile" className="text-2xl">
-                    👤
-                  </span>
+                  <FaSmog size={24} />
                 </div>
               </div>
 
@@ -112,11 +118,16 @@ export default function UserDetailIOT() {
                   <p className={`text-sm ${iconColor}`}>PM1: {data.PM1} µg/m³</p>
                 )}
               </div>
+
+              {/* แสดง IOTGPY2024 ถ้า data.pmId === "IOTGPY2024" */}
+              {/* แสดง PMValuesT9 ถ้า data.pmId === "PMValuesT9" */}
+              {data.pmId === "IOTGPY2024" && <IOTGPY2024 pmValue={data.PM2_5} />}
+              {data.pmId === "PMValuesT9" && <PMValuesT9 pmValue={data.PM2_5} />}
             </div>
           );
         })}
       </div>
-      <IOTGPY2024/>
+      
     </div>
   );
 }

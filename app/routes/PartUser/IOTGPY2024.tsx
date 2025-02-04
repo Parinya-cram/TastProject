@@ -14,7 +14,7 @@ if (typeof window !== 'undefined') {
   registerLocale('th', th);
 }
 
-const UserDashboardIOT = () => {
+const IOTGPY2024 = () => {
   const [data, setData] = useState([]);
   const [chartData, setChartData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -27,14 +27,15 @@ const UserDashboardIOT = () => {
   const [viewType, setViewType] = useState('hour'); // 'hour' or 'day'
   const chartRef = useRef(null);
 
+  // Function to fetch data from the remote source.
   const fetchData = async () => {
-    setIsLoading(true);
     try {
       const response = await fetch(
         'https://script.google.com/macros/s/AKfycbzedteL-n4Yd_Vi2lb3GvqNVyi6aTb1finwVMSgy6GjJT_suRMqLe6ZHTfXJVES0JdsJQ/exec'
       );
       const json = await response.json();
       const formattedData = json.map((row) => ({
+        pmId: "IOTGPY2024",
         timestamp: row[0], // timestamp is the first field
         pm2_5: row[2],     // pm2_5 is the third field
       }));
@@ -47,58 +48,76 @@ const UserDashboardIOT = () => {
     }
   };
 
+  // Initial fetch and then re-fetch every 10 seconds for real-time updates.
   useEffect(() => {
     fetchData();
+    const interval = setInterval(fetchData, 10000); // 10 seconds interval
+    return () => clearInterval(interval);
   }, []);
 
+  // Process and group data whenever the raw data, date range, or view type changes.
   useEffect(() => {
     if (data.length > 0) {
+      // Filter data by date range and also filter out rows with invalid dates.
       const filteredData = data.filter((row) => {
         const rowDate = new Date(row.timestamp);
-        const isDateInRange = (!startDate || rowDate >= new Date(startDate)) &&
-                              (!endDate || rowDate <= new Date(endDate));
+        if (isNaN(rowDate.getTime())) return false;
+        const isDateInRange =
+          (!startDate || rowDate >= new Date(startDate)) &&
+          (!endDate || rowDate <= new Date(endDate));
         return isDateInRange;
       });
-
+  
       let groupedData;
       if (viewType === 'hour') {
         groupedData = groupByHour(filteredData);
       } else if (viewType === 'day') {
         groupedData = groupByDay(filteredData);
       }
-
-      const labels = groupedData.map(item => item.label);
-      const pm2_5Data = groupedData.map(item => item.averagePM25);
-      const colors = groupedData.map(item => getSafetyColor(item.averagePM25));
-
-      const avgPM25 = pm2_5Data.reduce((acc, value) => acc + value, 0) / pm2_5Data.length;
+  
+      const labels = groupedData.map((item) => item.label);
+      const pm2_5Data = groupedData.map((item) => item.averagePM25);
+  
+      // Remove any invalid data points
+      const validData = pm2_5Data.filter((value) => !isNaN(value));
+  
+      const colors = validData.map((value) => getSafetyColor(value));
+  
+      const avgPM25 =
+        validData.length > 0
+          ? validData.reduce((acc, value) => acc + value, 0) / validData.length
+          : null;
       setAveragePM25(avgPM25);
-
+  
       setChartData({
         labels,
         datasets: [
           {
             label: 'PM2.5 Data',
-            data: pm2_5Data,
-            backgroundColor: colors, // ใช้สีที่กำหนดตามระดับความปลอดภัย
+            data: validData, // Use filtered valid data
+            backgroundColor: colors,
             borderColor: 'rgba(0, 0, 0, 0.1)',
             borderWidth: 1,
             borderRadius: 1000,
-            barThickness: 15  , // ปรับความหนาของแท่งให้สวยงาม
+            barThickness: 10,
             hoverBackgroundColor: 'rgba(0, 0, 0, 0.5)',
-            type: 'bar', // Set chart type to bar for better visualization
+            type: 'bar',
           },
         ],
       });
     }
   }, [data, startDate, endDate, viewType]);
 
+  // Grouping functions.
   const groupByHour = (data) => {
     const groups = {};
     data.forEach((row) => {
       const date = new Date(row.timestamp);
+      // Skip row if the date is invalid
+      if (isNaN(date.getTime())) return;
       const hour = date.getHours();
-      const dateKey = ` ${date.getDate()}-${date.getMonth() + 1} เวลา ${hour}:00`;
+      // Create a key like "15-8 เวลา 14:00"
+      const dateKey = `${date.getDate()}-${date.getMonth() + 1} เวลา ${hour}:00`;
       
       if (!groups[dateKey]) {
         groups[dateKey] = [];
@@ -117,6 +136,8 @@ const UserDashboardIOT = () => {
     const groups = {};
     data.forEach((row) => {
       const date = new Date(row.timestamp);
+      // Skip row if the date is invalid
+      if (isNaN(date.getTime())) return;
       const dateKey = `${date.getDate()}-${date.getMonth() + 1}-${date.getFullYear()}`;
       
       if (!groups[dateKey]) {
@@ -132,35 +153,49 @@ const UserDashboardIOT = () => {
     });
   };
 
+  // Returns a color based on the PM2.5 value.
   const getSafetyColor = (pm25) => {
     if (pm25 <= 25) {
       return 'rgba(76, 175, 80, 0.7)'; // Green for good
-    } else if (pm25 <= 3) {
+    } else if (pm25 <= 37.5) {
       return 'rgba(255, 193, 7, 0.7)'; // Yellow for moderate
-    } else if (pm25 <= 5) {
+    } else if (pm25 <= 75.0) {
       return 'rgba(255, 87, 34, 0.7)'; // Orange for unhealthy
     } else {
-      return 'rgba(244, 67, 54, 0.7)'; // Red for very unhealthy
+      return 'rgba(241, 20, 4, 0.7)'; // Red for very unhealthy
     }
   };
 
+  // Handler for changing the view type.
   const handleViewChange = (e) => {
     setViewType(e.target.value); // Change view type between 'hour' and 'day'
   };
 
+  // When a bar in the chart is clicked, update the selected label and PM2.5 value.
   const handleChartClick = (event, chartElement) => {
     if (chartElement.length > 0) {
       const index = chartElement[0].index;
       const label = chartData.labels[index];
       const averagePM25 = chartData.datasets[0].data[index];
-
-      setSelectedLabel(label);
-      setSelectedAveragePM25(averagePM25);
+  
+      if (!isNaN(averagePM25)) {
+        setSelectedLabel(label);
+        setSelectedAveragePM25(averagePM25);
+      }
     }
   };
 
+  // Render average PM2.5 as a formatted string.
   const renderAveragePM25 = (averagePM25) => {
-    return isNaN(averagePM25) ? '' : `${averagePM25.toFixed(2)} µg/m³`;
+    return !isNaN(averagePM25) && averagePM25 !== null
+      ? `${averagePM25.toFixed(2)} µg/m³`
+      : 'No Data'; // Use 'No Data' if the value is invalid
+  };
+
+  // Reset date function to clear both start and end dates.
+  const resetDates = () => {
+    setStartDate(null);
+    setEndDate(null);
   };
 
   if (isLoading) {
@@ -199,26 +234,32 @@ const UserDashboardIOT = () => {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl bg-white shadow-xl rounded-xl">
-      <h2 className="text-4xl font-semibold text-center mb-6 text-gray-800">PM2.5 Graph</h2>
+      <h2 className="text-4xl font-semibold text-center mb-6 text-gray-800">PM2.5 Graph (Realtime)</h2>
 
-      {/* Date Picker */}
-      <div className="mb-8 flex justify-center space-x-4">
-      <DatePicker
-        selected={startDate}
-        onChange={(date) => setStartDate(date)}
-        dateFormat="yyyy-MM-dd"
-        className="p-2 border border-gray-300 rounded-md shadow-sm"
-        placeholderText="Select start date"
-        locale="th" // กำหนดให้แสดงเดือนและปีเป็นภาษาไทย
-      />
-      <DatePicker
-        selected={endDate}
-        onChange={(date) => setEndDate(date)}
-        dateFormat="yyyy-MM-dd"
-        className="p-2 border border-gray-300 rounded-md shadow-sm"
-        placeholderText="Select end date"
-        locale="th" // กำหนดให้แสดงเดือนและปีเป็นภาษาไทย
-      />
+      {/* Date Picker Section with Reset Button */}
+      <div className="mb-8 flex justify-center items-end space-x-4">
+        <DatePicker
+          selected={startDate}
+          onChange={(date) => setStartDate(date)}
+          dateFormat="yyyy-MM-dd"
+          className="p-2 border border-gray-300 rounded-md shadow-sm"
+          placeholderText="Select start date"
+          locale="th" // กำหนดให้แสดงเดือนและปีเป็นภาษาไทย
+        />
+        <DatePicker
+          selected={endDate}
+          onChange={(date) => setEndDate(date)}
+          dateFormat="yyyy-MM-dd"
+          className="p-2 border border-gray-300 rounded-md shadow-sm"
+          placeholderText="Select end date"
+          locale="th" // กำหนดให้แสดงเดือนและปีเป็นภาษาไทย
+        />
+        <button
+          onClick={resetDates}
+          className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 focus:outline-none transition duration-300"
+        >
+          Reset Date
+        </button>
       </div>
 
       {/* View Type Buttons */}
@@ -242,7 +283,9 @@ const UserDashboardIOT = () => {
       {/* Selected Data */}
       {selectedLabel && selectedAveragePM25 !== null && (
         <div className="mt-4 bg-red-100 border-l-4 border-red-500 shadow-lg rounded-lg p-6">
-          <h3 className="text-xl font-semibold">Selected {viewType === 'hour' ? 'Hour' : 'Day'}: {selectedLabel}</h3>
+          <h3 className="text-xl font-semibold">
+            Selected {viewType === 'hour' ? 'Hour' : 'Day'}: {selectedLabel}
+          </h3>
           <p className="text-lg">Average PM2.5: {renderAveragePM25(selectedAveragePM25)}</p>
         </div>
       )}
@@ -278,12 +321,12 @@ const UserDashboardIOT = () => {
                   },
                   ticks: {
                     beginAtZero: true,
-                    stepSize: 30,
+                    stepSize: 10,
                   },
                 },
               },
             }}
-            height={400}
+            height={300}
           />
         </div>
       )}
@@ -291,4 +334,4 @@ const UserDashboardIOT = () => {
   );
 };
 
-export default UserDashboardIOT;
+export default IOTGPY2024;
