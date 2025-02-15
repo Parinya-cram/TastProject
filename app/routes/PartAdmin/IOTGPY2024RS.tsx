@@ -31,7 +31,7 @@ const IOTGPY2024RS = ({ pmId }: DeviceProps) => {
   };
 
   // Only show restart button if the pmId is "IOTGPY2024"
-  if (pmId !== "IOTGPY2024") {
+  if (pmId !== pmId) {
     return null; // Don't render anything if pmId is not "IOTGPY2024"
   }
 

@@ -2,8 +2,13 @@ import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
 import admin from "firebase-admin";
-import bcrypt from "bcrypt";
-import serviceAccount from './server/config/CPC_Fire_DB.json' assert { type: "json" };
+import dotenv from "dotenv"; // ใช้สำหรับโหลดค่าจาก .env
+import nodemailer from "nodemailer";
+import bcrypt from 'bcrypt';
+import serviceAccount from "./server/config/CPC_Fire_DB.json" assert { type: "json" };
+
+// โหลดตัวแปรจาก .env
+dotenv.config();
 
 // Initialize Firebase Admin
 admin.initializeApp({
@@ -18,10 +23,105 @@ const port = 3005;
 app.use(bodyParser.json());
 app.use(cors());
 
-// Starting the server
-app.listen(port, () => {
-  console.log(`Web application listening on port ${port}.`);
+// ________________________________________________________________________Notification_________________________________________________
+
+app.post("/api/sendemail", async (req, res) => {
+  const { useremail, pmId, pmData } = req.body;
+
+  if (!useremail || !pmId || !pmData) {
+    return res.status(400).json({ message: "useremail, pmId, and pmData are required." });
+  }
+
+  // Format the PM data to make it readable
+  const pmDataFormatted = Array.isArray(pmData)
+    ? pmData.map((item, index) => {
+        // Assuming pmData objects have properties like 'pmValue' and 'timestamp'
+        const pmValue = item.PM2_5 || 'No value available'; // Replace with actual property if necessary
+        const timestamp = item.timestamp || 'No timestamp available'; // Replace with actual property if necessary
+        return `<p>Data ${index + 1} - PM Value: ${pmValue}, Timestamp: ${timestamp}</p>`;
+      }).join('')
+    : `<p>PM Data: ${JSON.stringify(pmData)}</p>`; // In case it's not an array
+
+  const transporter = nodemailer.createTransport({
+    host: "smtp.gmail.com",
+    port: 587,
+    secure: false,
+    service: "gmail",
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    }
+  });
+
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: useremail,
+    subject: `PM2.5 Alert: ${pmId}`,
+    html: `
+      <p>ค่าเฉลี่ย PM2.5 ID: ${pmId}</p>
+      <p>ค่าเฉลี่ย:</p>
+      ${pmDataFormatted}
+    `,
+  };
+
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Email sent: " + info.response);
+    res.status(200).json({ message: "Email sent successfully!" });
+  } catch (error) {
+    console.error("Error sending email:", error);
+    res.status(500).json({ message: "Error sending email." });
+  }
 });
+
+app.get("/api/getHistorys/:pmId", async (req, res) => {
+  try {
+    const { pmId } = req.params;
+    if (!pmId) {
+      return res.status(400).json({ message: "pmId is required" });
+    }
+
+    const query = db.collection("history").where("pmId", "==", pmId);
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ message: "ไม่พบข้อมูล PM2.5" });
+    }
+
+    const data = [];
+    snapshot.forEach((doc) => {
+      data.push({ id: doc.id, ...doc.data() });
+    });
+
+    // ✅ คำนวณค่าเฉลี่ย PM2.5 รายชั่วโมง
+    const groupedData = {};
+    data.forEach((entry) => {
+      const timestamp = new Date(entry.timestamp);
+      const hourKey = `${timestamp.getFullYear()}-${timestamp.getMonth() + 1}-${timestamp.getDate()} ${timestamp.getHours()}:00`;
+
+      if (!groupedData[hourKey]) {
+        groupedData[hourKey] = { sum: 0, count: 0 };
+      }
+      groupedData[hourKey].sum += Number(entry.PM2_5) || 0;
+      groupedData[hourKey].count += 1;
+    });
+
+    const hourlyAvg = Object.keys(groupedData).map((hour) => ({
+      hour,
+      avgPM: (groupedData[hour].sum / groupedData[hour].count).toFixed(2),
+    }));
+
+    res.status(200).json(hourlyAvg);
+  } catch (error) {
+    console.error("เกิดข้อผิดพลาดในการดึงข้อมูล:", error);
+    res.status(500).json({ message: "ไม่สามารถดึงข้อมูลได้" });
+  }
+});
+
+// Start the server
+app.listen(port, () => {
+  console.log(`Server running on http://localhost:${port}`);
+}); 
 
 // Utility function to check if an admin exists (by email or adminId)
 async function checkIfAdminExists(adminId, email) {
@@ -119,34 +219,7 @@ app.get("/api/getAdmin/:adminId", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch admin." });
   }
 });
-app.get("/api/getUser", async (req, res) => {
-  try {
-    const persons = [];
-    const personSnapshot = await db.collection("Person").get(); // Get all users from the "Person" collection
-    personSnapshot.forEach((doc) => {
-      const data = doc.data();
-      delete data.userNum; // Remove sensitive data (userNum)
-      persons.push({ id: doc.id, ...data }); // Add user data with the document ID
-    });
-    res.status(200).json(persons); // Return all users
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch users." }); // Handle errors
-  }
-});
-app.get("/api/getUser/:userId", async (req, res) => {
-  const { userId } = req.params; // Get userId from URL parameters
-  try {
-    const personDoc = await db.collection("Person").doc(userId).get(); // Fetch the user by their ID
-    if (!personDoc.exists) {
-      return res.status(404).json({ message: "User not found." }); // Handle user not found
-    }
-    const personData = personDoc.data();
-    delete personData.userNum; // Remove sensitive data (userNum)
-    res.status(200).json(personData); // Return the user's data
-  } catch (error) {
-    res.status(500).json({ message: "Failed to fetch user." }); // Handle errors
-  }
-});
+
 // Update a person route
 app.post("/api/updateAdmin/:adminId", async (req, res) => {
   const { adminId } = req.params;
@@ -270,7 +343,7 @@ app.post('/api/addUser', async (req, res) => {
     const snapshot = await userRef.get(userId);
 
     if (!snapshot.empty) {
-      return res.status(409).json({ message: 'User already exists' });
+      return res.status(409).json({ message: 'คุณมีข้อมูลในระบบแล้ว' });
     }
 
     // Create a new user document
@@ -312,6 +385,74 @@ app.get('/api/getUser/:userId', async (req, res) => {
   }
 });
 
+app.get("/api/getUser", async (req, res) => {
+  try {
+    const persons = [];
+    const personSnapshot = await db.collection("Person").get();
+    personSnapshot.forEach((doc) => {
+      const data = doc.data();
+      persons.push({ id: doc.id, ...data });
+    });
+    res.status(200).json(persons);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch Users." });
+  }
+});
+
+const handleDelete = (userId) => {
+  const confirmDelete = window.confirm("คุณต้องการลบข้อมูลผู้ใช้หรือไม่?");
+  if (confirmDelete) {
+    console.log(`Attempting to delete user with id: ${userId}`); // เพิ่มการตรวจสอบค่าของ userId
+    axios.delete(`http://localhost:3005/api/deleteUser/${userId}`).then((response) => {
+      if (response.status === 200) {
+        setUsersData(usersData.filter(user => user.id !== userId)); // ลบข้อมูลจาก state
+        alert("ลบข้อมูลสำเร็จ");
+      } else {
+        alert("ไม่สามารถลบข้อมูลได้");
+      }
+    }).catch(err => {
+      console.error("Error deleting user:", err);
+      alert("ไม่สามารถลบข้อมูลได้");
+    });
+  }
+};
+
+app.get('/api/searchUser', async (req, res) => {
+  const { userName, useremail, userId } = req.query;
+
+  try {
+    let query = db.collection('Person'); // Start with the "Person" collection
+
+    // Apply filters based on the query parameters provided
+    if (userName) {
+      query = query.where('userName', '==', userName);
+    }
+
+    if (useremail) {
+      query = query.where('useremail', '==', useremail);
+    }
+
+    if (userId) {
+      query = query.where('userId', '==', userId);
+    }
+
+    const snapshot = await query.get();
+
+    if (snapshot.empty) {
+      return res.status(404).json({ message: 'No users found matching the search criteria.' });
+    }
+
+    const users = [];
+    snapshot.forEach((doc) => {
+      users.push({ id: doc.id, ...doc.data() });
+    });
+
+    res.status(200).json(users); // Return the found users
+  } catch (error) {
+    console.error('Error searching users:', error);
+    res.status(500).json({ message: 'Error searching for users.' });
+  }
+});
 //---------------------------------------------IOT-----------------------------------------------------------------------------------------------------
 app.post('/api/addIoTData', async (req, res) => {
   const { pmId, PM1, PM10, PM2_5, timestamp, address, location, status } = req.body;

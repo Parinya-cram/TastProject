@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import IOTGPY2024 from './IOTGPY2024';
 import { FaSmog } from 'react-icons/fa';
 import PMValuesT9 from './PMValuesT9';
 
@@ -121,13 +120,12 @@ export default function UserDetailIOT() {
 
               {/* แสดง IOTGPY2024 ถ้า data.pmId === "IOTGPY2024" */}
               {/* แสดง PMValuesT9 ถ้า data.pmId === "PMValuesT9" */}
-              {data.pmId === "IOTGPY2024" && <IOTGPY2024 pmValue={data.PM2_5} />}
-              {data.pmId === "PMValuesT9" && <PMValuesT9 pmValue={data.PM2_5} />}
+              {/* {data.pmId === "IOTGPY2024" && <IOTGPY2024 pmValue={data.PM2_5} />} */}
+              <PMValuesT9/>
             </div>
           );
         })}
       </div>
-      
     </div>
   );
 }

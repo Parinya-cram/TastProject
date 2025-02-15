@@ -6,7 +6,7 @@
     "**/.server/**/*.tsx",
     "**/.client/**/*.ts",
     "**/.client/**/*.tsx"
-, "app/routes/CPC.Admin.Dashboard.$adminIdtsx", "app/routes/CPC.Admin.Dashboard.$adminIdtsx"  ],
+, "app/routes/CPC.Admin.Dashboard.$adminIdtsx", "app/routes/CPC.Admin.Dashboard.$adminIdtsx", "app/routes/testSendEmail.text"  ],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["@remix-run/node", "vite/client"],
